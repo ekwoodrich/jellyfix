@@ -22,13 +22,17 @@ jobs:
       - name: Test
         run: dotnet test -c Release --no-build
 
+      # Untagged builds are installable for testing but carry the fallback version from
+      # Directory.Build.props; tagged builds get the real version in release.yaml.
       - name: Package plugin
         run: |
-          mkdir -p artifacts/JellyFix
-          cp Jellyfin.Plugin.JellyFix/bin/Release/net9.0/Jellyfin.Plugin.JellyFix.dll artifacts/JellyFix/
-          cd artifacts && zip -r JellyFix_1.0.0.0.zip JellyFix
+          version="$(dotnet msbuild Jellyfin.Plugin.JellyFix/Jellyfin.Plugin.JellyFix.csproj -getProperty:PluginVersion)"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          python3 -m pip install --quiet --disable-pip-version-check pyyaml
+          python3 scripts/package_plugin.py --version "$version"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: JellyFix-plugin
-          path: artifacts/JellyFix_1.0.0.0.zip
+          name: JellyFix-${{ env.VERSION }}
+          path: dist/JellyFix_${{ env.VERSION }}.zip
+          if-no-files-found: error

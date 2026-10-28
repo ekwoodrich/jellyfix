@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Tag '$tag' must look like v1.2.3.4 (Jellyfin plugin versions have four numeric parts)."
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing version $version from tag $tag"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Test
+        run: dotnet test -c Release -p:PluginVersion=${{ steps.version.outputs.version }}
+
+      - name: Build
+        run: dotnet build Jellyfin.Plugin.JellyFix/Jellyfin.Plugin.JellyFix.csproj -c Release -p:PluginVersion=${{ steps.version.outputs.version }}
+
+      - name: Package plugin
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pyyaml
+          python3 scripts/package_plugin.py --version "$VERSION"
+
+      - name: Verify packaged version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - "$VERSION" <<'PY'
+          import json, sys, zipfile
+          version = sys.argv[1]
+          path = f"dist/JellyFix_{version}.zip"
+          with zipfile.ZipFile(path) as archive:
+              meta = json.loads(archive.read("meta.json"))
+          assert meta["version"] == version, f"meta.json says {meta['version']}, expected {version}"
+          assert "Jellyfin.Plugin.JellyFix.dll" in archive.namelist(), "plugin dll missing from zip"
+          print(f"zip {path} contains {archive.namelist()} with version {meta['version']}")
+          PY
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JellyFix-${{ steps.version.outputs.version }}
+          path: dist/JellyFix_${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "dist/JellyFix_${VERSION}.zip" \
+            --title "JellyFix ${VERSION}" \
+            --generate-notes \
+            --verify-tag

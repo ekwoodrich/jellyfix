@@ -16,6 +16,20 @@ dotnet test
 JELLYFIX_SAMPLE="/path/to/real.mkv" dotnet test --filter RealFileSmokeTests
 ```
 
+## Versioning and releases
+
+The version exists in exactly one place at release time: the git tag.
+
+* `build.yaml` has **no** `version` field on purpose. Do not add one back.
+* `Directory.Build.props` sets `PluginVersion` to `1.0.0.0` only as a local/CI fallback, and
+  derives `Version`, `AssemblyVersion`, `FileVersion` and `InformationalVersion` from it.
+* `.github/workflows/release.yaml` runs on `v[0-9]+.[0-9]+.[0-9]+.[0-9]+` tags, validates the
+  format, builds with `-p:PluginVersion=<tag without v>`, packages
+  `dist/JellyFix_<version>.zip` (DLL + generated `meta.json`), asserts the versions match, then
+  uploads both the workflow artifact and the release asset.
+* `scripts/package_plugin.py --version X` is the single packaging path (needs PyYAML).
+* Cutting a release: `git tag v1.0.0.2 && git push origin v1.0.0.2`. Nothing else to edit.
+
 ## Layout
 
 | Path | Purpose |
@@ -25,6 +39,8 @@ JELLYFIX_SAMPLE="/path/to/real.mkv" dotnet test --filter RealFileSmokeTests
 | `Jellyfin.Plugin.JellyFix/Tasks/FixSeekIndexTask.cs` | `IScheduledTask`, default trigger 24 h |
 | `Jellyfin.Plugin.JellyFix/Library/PostScanSeekIndexTask.cs` | `ILibraryPostScanTask` hook |
 | `Jellyfin.Plugin.JellyFix.Tests/` | xunit tests over synthetic Matroska files |
+| `scripts/package_plugin.py` | builds the Jellyfin-installable zip, injects the version into `meta.json` |
+| `.github/workflows/release.yaml` | tag-driven build, artifact, and GitHub release |
 
 ## Things that bite
 

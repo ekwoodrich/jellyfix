@@ -54,17 +54,17 @@ real `Cues` element:
 
 ## Installation
 
-1. Build or download `Jellyfin.Plugin.JellyFix.dll`.
-2. Create a folder in your server's plugin directory and copy the DLL into it:
+1. Download `JellyFix_<version>.zip` from the [releases page](https://github.com/ekwoodrich/jellyfix/releases).
+2. Extract it into a versioned folder inside your server's plugin directory:
 
    ```sh
-   mkdir -p /path/to/config/plugins/JellyFix_1.0.0.0
-   cp Jellyfin.Plugin.JellyFix.dll /path/to/config/plugins/JellyFix_1.0.0.0/
+   mkdir -p /path/to/config/plugins/JellyFix_1.0.0.1
+   unzip JellyFix_1.0.0.1.zip -d /path/to/config/plugins/JellyFix_1.0.0.1
    ```
 
-   For the official Docker image that is `/config/plugins/JellyFix_1.0.0.0/`
-   (`/volume2/Storage_SSD/Docker/stremio/config/plugins/...` on the NAS this was built for).
-3. Restart Jellyfin. The server log shows `Loaded plugin: JellyFix 1.0.0.0`.
+   For the official Docker image that is `/config/plugins/JellyFix_<version>/`.
+   The zip contains the plugin DLL and a `meta.json` with the matching version.
+3. Restart Jellyfin. The server log shows `Loaded plugin: JellyFix <version>`.
 4. Configure it under **Dashboard → Plugins → JellyFix**.
 
 ## Settings
@@ -120,6 +120,36 @@ no longer exists (renamed on disk, pending scan cleanup) are skipped silently an
 ```sh
 dotnet build -c Release
 dotnet test
+```
+
+## Releasing
+
+The version is **never edited by hand**. `build.yaml` intentionally has no `version` field and
+`Directory.Build.props` only carries a fallback for local builds.
+
+```sh
+git tag v1.0.0.1
+git push origin v1.0.0.1
+```
+
+Pushing a `v<major>.<minor>.<patch>.<build>` tag triggers `.github/workflows/release.yaml`, which:
+
+1. validates the tag format and derives the version (`v1.0.0.1` → `1.0.0.1`),
+2. runs the test suite and builds with `-p:PluginVersion=1.0.0.1`, so assembly, file and
+   informational versions all match the tag,
+3. packages `dist/JellyFix_1.0.0.1.zip` (plugin DLL + generated `meta.json` with that version),
+4. verifies the packaged `meta.json` and DLL really carry the version,
+5. uploads the zip as a workflow artifact **and** attaches it to the GitHub release for that tag.
+
+Untagged builds run `.github/workflows/build.yaml` and produce an installable zip with the
+fallback version, which is handy for testing a branch before tagging.
+
+To package locally:
+
+```sh
+python3 -m pip install pyyaml          # once
+dotnet build -c Release -p:PluginVersion=1.0.0.1
+python3 scripts/package_plugin.py --version 1.0.0.1
 ```
 
 Requires the .NET 9 SDK. The plugin targets `net9.0` and references `Jellyfin.Controller` /
