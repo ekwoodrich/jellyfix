@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Test
+        run: dotnet test -c Release --no-build
+
+      - name: Package plugin
+        run: |
+          mkdir -p artifacts/JellyFix
+          cp Jellyfin.Plugin.JellyFix/bin/Release/net9.0/Jellyfin.Plugin.JellyFix.dll artifacts/JellyFix/
+          cd artifacts && zip -r JellyFix_1.0.0.0.zip JellyFix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JellyFix-plugin
+          path: artifacts/JellyFix_1.0.0.0.zip

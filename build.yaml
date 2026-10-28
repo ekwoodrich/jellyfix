@@ -1,0 +1,21 @@
+---
+name: "JellyFix"
+guid: "da8161f8-abdd-49ec-bf99-1c4d84731fe1"
+version: "1.0.0.0"
+targetAbi: "10.11.0.0"
+framework: "net9.0"
+overview: "Repairs Matroska files that cannot be seeked by ExoPlayer-based Jellyfin clients."
+description: >
+  JellyFix detects Matroska (.mkv/.webm) files whose seek index is unreachable
+  because the first SeekHead only points at a second SeekHead, a layout that makes
+  ExoPlayer-based clients (Jellyfin Android TV, Wholphin, Findroid) treat the stream
+  as unseekable and restart from the beginning whenever you scrub.
+  The plugin retargets that SeekHead entry to the real Cues element (a 12 byte,
+  lossless, in-place patch) either on a schedule or right after a library scan,
+  and logs every file it finds, fixes, or cannot fix.
+category: "Library"
+owner: "ekwoodrich"
+artifacts:
+- "Jellyfin.Plugin.JellyFix.dll"
+changelog: >
+  Initial release: scheduled and post-library-scan Matroska seek index repair.
