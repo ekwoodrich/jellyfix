@@ -85,7 +85,9 @@ real `Cues` element:
 * **After a library scan** — enable *Run after every library scan* in the plugin settings.
 
 Only files Jellyfin has indexed as video items with a `.mkv`/`.webm` extension are inspected,
-so the cost is one small header read per file.
+so the cost is one small header read per file (~30 s for 2100 files). Library entries whose file
+no longer exists (renamed on disk, pending scan cleanup) are skipped silently and counted as
+`missing` in the summary instead of being reported as errors.
 
 ## Where results go
 
@@ -94,7 +96,7 @@ so the cost is one small header read per file.
    ```
    [INF] JellyFix: repaired /media/tv/Show/Episode.mkv (Retargeted the first SeekHead entry to Cues; Cues found at segment offset 5903883165.)
    [WRN] JellyFix: cannot repair /media/tv/Show/Other.mkv: The first SeekHead entry id is not 4 bytes wide, so it cannot be retargeted to Cues.
-   [INF] JellyFix finished: 2202 scanned, 2197 already fine, 5 repaired, 0 repairable but not fixed, 0 not repairable, 0 errors, 0 skipped.
+   [INF] JellyFix finished: 2202 scanned, 2197 already fine, 5 repaired, 0 repairable but not fixed, 0 not repairable, 0 errors, 0 skipped, 0 missing.
    ```
 2. A tab separated report that survives log rotation, at
    `<data>/jellyfix/report.log` (`/config/data/jellyfix/report.log` in Docker), with one line

@@ -108,20 +108,28 @@ public sealed class SeekIndexFixService
                 continue;
             }
 
+            if (!File.Exists(path))
+            {
+                counters.Missing++;
+                _logger.LogDebug("JellyFix: skipping {Path} because it no longer exists (stale library entry).", path);
+                continue;
+            }
+
             var result = SeekIndexInspector.Inspect(path, configuration.FixAutomatically);
             RecordResult(result, path, counters, report);
             progress?.Report(100.0 * (index + 1) / files.Count);
         }
 
         _logger.LogInformation(
-            "JellyFix finished: {Scanned} scanned, {Ok} already fine, {Fixed} repaired, {Fixable} repairable but not fixed, {Unfixable} not repairable, {Errors} errors, {Skipped} skipped.",
+            "JellyFix finished: {Scanned} scanned, {Ok} already fine, {Fixed} repaired, {Fixable} repairable but not fixed, {Unfixable} not repairable, {Errors} errors, {Skipped} skipped, {Missing} missing.",
             files.Count,
             counters.Ok,
             counters.Fixed,
             counters.Fixable,
             counters.Unfixable,
             counters.Errors,
-            counters.Skipped);
+            counters.Skipped,
+            counters.Missing);
 
         report.WriteSummary(counters, files.Count);
     }
@@ -230,6 +238,8 @@ public sealed class SeekIndexFixService
         public int Errors { get; set; }
 
         public int Skipped { get; set; }
+
+        public int Missing { get; set; }
     }
 
     /// <summary>
@@ -273,7 +283,7 @@ public sealed class SeekIndexFixService
         {
             _writer?.WriteLine(string.Format(
                 CultureInfo.InvariantCulture,
-                "{0:O}\tSUMMARY\tscanned={1}\tok={2}\tfixed={3}\tfixable={4}\tunfixable={5}\terrors={6}\tskipped={7}",
+                "{0:O}\tSUMMARY\tscanned={1}\tok={2}\tfixed={3}\tfixable={4}\tunfixable={5}\terrors={6}\tskipped={7}\tmissing={8}",
                 DateTime.UtcNow,
                 scanned,
                 counters.Ok,
@@ -281,7 +291,8 @@ public sealed class SeekIndexFixService
                 counters.Fixable,
                 counters.Unfixable,
                 counters.Errors,
-                counters.Skipped));
+                counters.Skipped,
+                counters.Missing));
         }
 
         public void Dispose()
